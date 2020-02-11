@@ -1,0 +1,16 @@
+version: '3'
+services:
+  node:
+    build: ./src
+    user: 'node'
+    restart: on-failure
+    environment:
+      - NODE_ENV
+    working_dir: /usr/src
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./src:/usr/src
+    ports:
+      - 3000:3000
+    # command: ['node', 'app.js']
