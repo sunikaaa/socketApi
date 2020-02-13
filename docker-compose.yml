@@ -13,4 +13,4 @@ services:
       - ./src:/usr/src
     ports:
       - 3000:3000
-    # command: ['node', 'app.js']
+    command: ['npm', 'start']

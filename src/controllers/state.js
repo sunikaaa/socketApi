@@ -13,6 +13,10 @@ const lengthN = (length, objKey = undefined) => val => {
   }
   return length === val[objKey].length;
 };
+const roomToObj = (obj, data) => ({
+  ...obj,
+  [data.id]: data
+})
 
 // {
 //     roomId:roomId,
@@ -24,15 +28,16 @@ const lengthN = (length, objKey = undefined) => val => {
 // }
 
 class State {
-  constructor(room, chain, oldclass, roomId) {
+  constructor(room = {}, chain = false, oldClass, roomId = undefined, flash = undefined) {
     this.room = room;
     this.chaining = chain;
     this.roomId = roomId;
-    this.oldclass = oldclass;
+    this.oldClass = oldClass;
+    this.flash = flash
   }
 
   chain() {
-    return new TestRoom(this.room, true, this);
+    return new State(_.cloneDeep(this.room), true, this);
   }
 
   save() {
@@ -40,76 +45,65 @@ class State {
       console.log('use "save" with chain');
       return;
     }
+    // console.log("this is old", this.oldClass.room)
+    console.log("this is now", this.room)
     this.oldClass.room = this.room;
-    this.oldClass.roomId = this.roomId;
-    return new TestRoom(this.room, false, this.roomId);
+    // this.oldClass.roomId = this.roomId;
+    return new State(this.room, false, this, this.roomId);
   }
 
-  isChain(room, id) {
-    return this.chain
-      ? new TestRoom(room, this.chaining, this.oldClass, id)
-      : room;
-  }
-  // doCrateAndWait(id,name = '名無し'){
-  //     return this.CreateWatingPlayer(id,name,this.createRoom(id,name));
-  // }
-
-  // doPlayAndInRoom(id,name = '名無し'){
-  //     const waitingPlayer = this.shiftWaitingRoomObj()
-  //     this.addMenberToRoom(waitingPlayer.roomId,id,name)
-  //     return waitingPlayer.roomId
-  // }
-
-  isFullRoom(roomId) {
-    return this.room.find(equal(roomId, 'roomId')).menber.length === 2;
+  isChain(room, roomId, flash = undefined) {
+    return this.chain ?
+      new State(room, this.chaining, this.oldClass, roomId, flash) :
+      flash;
   }
 
-  isWatingPlayer() {
-    const test = this.room.filter(randomRoom => randomRoom.random);
-    console.log(test);
-    return test;
+  getRoom(roomId = undefined) {
+    return roomId ? this.room[roomId] : this.room[this.roomId];
   }
-  //return roomId
-  CreateWatingPlayer(id, name, roomId) {
-    let obj = {
-      name: name,
-      id: id,
-      roomId: roomId
-    };
-    this.watingPlayer.push(obj);
-    return obj.roomId;
+
+  getRoomId(socketId) {
+    return _.filter(this.room, (room) => {
+      console.log(room)
+    })
+  }
+
+  roomIn(socketId, receive) {
+    this.room[this.roomId].menber.push({
+      name: receive.name,
+      id: socketId
+    })
+    return this.isChain(this.room, this.roomId);
+  }
+
+
+
+  getWatingPlayer() {
+    const wating = _.filter(this.room, randomRoom => randomRoom.random).filter(lengthN(1, "menber"))[0];
+    console.log(wating, "filter");
+    return wating ? this.isChain(this.room, wating.roomId, wating) : this.isChain(this.room, undefined, wating)
   }
 
   //return roomId
-  createRoom(socketId, receive) {
+
+  //return roomId
+  createRoom(socketId, receive = false) {
+    if (receive === false) {
+      throw Error;
+    }
     let roomId = receive.roomId ? receive.roomId : socketId + Date.now();
-    // console.log(room, "room", id, roomId);
-    let obj = {
+    this.room[roomId] = {
       roomId: roomId,
       mid: socketId,
       random: receive.roomId ? false : true,
-      menber: [
-        {
-          name: name,
-          id: id
-        }
-      ]
+      menber: [{
+        name: receive.name,
+        id: socketId
+      }]
     };
-    this.room.push(obj);
-    console.log('create!', obj.random);
-    return roomId;
+    return this.isChain(this.room, roomId)
   }
 
-  addMenberToRoom(roomid, socketId, name) {
-    this.room.forEach(val => {
-      if (roomid === val.roomId) {
-        val.menber.push({
-          name: name,
-          id: socketId
-        });
-      }
-    });
-  }
 
   delPlayer(id) {
     let stateObj = {
@@ -131,14 +125,14 @@ class State {
     return obj;
   }
 
-  disConnect(id) {
-    this.someId(id, 'watingPlayer')
-      ? this.filterId(id, 'watingPlayer')
-      : console.log('notfound wating');
-    const disconnectRoom = this.someRoomId(id) ? this.filterRoom(id) : false;
-    disconnectRoom ? this.deleteRoom(disconnectRoom[0].roomId) : false;
-    this.consoleId();
-    return disconnectRoom;
+  disConnect(socketId) {
+    console.log('notfound wating');
+    let isInRoom = _.filter(this.room, obj => obj.menber.some(equal(socketId, 'id'))).reduce(roomToObj, {});
+    // const disconnectRoom = this.someRoomId(id) ? this.filterRoom(id) : false;
+    // disconnectRoom ? this.deleteRoom(disconnectRoom[0].roomId) : false;
+    // this.consoleId();
+    console.log(isInRoom, isInRoom.roomId);
+    return this.isChain(isInRoom)
   }
 
   deleteRoom(id) {
@@ -191,6 +185,7 @@ class State {
     return this.room.some(equal(roomId, 'roomId'));
   }
 }
+
 
 let state = new State();
 
